@@ -6,6 +6,15 @@ PKG_NAME="gnulib"
 PKG_VERSION="9f48fb992a3d7e96610c4ce8be969cff2d61a01b"
 PKG_LICENSE="GPL"
 PKG_SITE="https://savannah.gnu.org/git/?group=gnulib"
-PKG_URL="http://git.savannah.gnu.org/cgit/gnulib.git/snapshot/${PKG_NAME}-${PKG_VERSION}.tar.gz"
+# Same dead endpoint that broke configtools: cgit's snapshot route returns 400
+# for every form of this URL. gitweb still serves snapshots, which is what
+# UnofficialOS - a JELOS fork that is still maintained - moved to.
+#
+# PKG_SOURCE_NAME has to be set explicitly here. It is normally derived from
+# the URL basename, and for a gitweb query string that derivation produces
+# something ending in ";sf=tgz", which scripts/extract does not recognise as a
+# tarball.
+PKG_URL="http://git.savannah.gnu.org/gitweb/?p=${PKG_NAME}.git;a=snapshot;h=${PKG_VERSION};sf=tgz"
+PKG_SOURCE_NAME="${PKG_NAME}-${PKG_VERSION}.tar.gz"
 PKG_LONGDESC="GNU portability library"
 PKG_TOOLCHAIN="manual"
