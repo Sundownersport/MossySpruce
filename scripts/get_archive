@@ -20,7 +20,14 @@ build_msg "CLR_GET" "GET" "${1} (archive)" "indent"
 
 pkg_lock_status "GETPKG" "${PKG_NAME}" "unpack" "downloading package..."
 
-PACKAGE_MIRROR="${DISTRO_MIRROR}/${PKG_NAME}/${PKG_SOURCE_NAME}"
+# Without the guard an unset DISTRO_MIRROR yields "/pkg/name", which wget
+# rejects as "Scheme missing" - burning the one fallback slot on a URL that
+# can never resolve, and hiding the real failure behind ten retries of it.
+if [ -n "${DISTRO_MIRROR}" ]; then
+  PACKAGE_MIRROR="${DISTRO_MIRROR}/${PKG_NAME}/${PKG_SOURCE_NAME}"
+else
+  PACKAGE_MIRROR=""
+fi
 [ "${VERBOSE}" != "yes" ] && WGET_OPT=-q
 WGET_CMD="wget --secure-protocol=TLSv1_2 --output-file=- --timeout=30 --tries=3 --passive-ftp --no-check-certificate -c ${WGET_OPT} --progress=bar:force --show-progress -O ${PACKAGE}"
 

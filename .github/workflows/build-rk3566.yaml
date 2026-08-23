@@ -57,6 +57,22 @@ jobs:
           [ -z "$TAG" ] && TAG="$(date +'%Y%m%d')-$(git rev-parse --short HEAD)"
           echo "version=$TAG" >> $GITHUB_OUTPUT
 
+      # Restore before the build, save after it with if: always(). A failed
+      # build still keeps whatever it managed to download, which is the whole
+      # point here - the first run died 22 minutes in on an upstream that had
+      # simply stopped serving tarballs, and re-downloading everything to reach
+      # the same point again is pure waste.
+      #
+      # Only sources/ is cached. The build tree is many GB and GitHub caps a
+      # repository at 10GB total, so caching it would evict itself every run.
+      - name: Restore source cache
+        uses: actions/cache/restore@v4
+        with:
+          path: sources
+          key: sources-rk3566-${{ hashFiles('packages/**/package.mk') }}
+          restore-keys: |
+            sources-rk3566-
+
       - name: Build RK3566
         run: |
           set -e
@@ -70,10 +86,23 @@ jobs:
               make docker-RK3566-aarch64
           fi
 
+      # The key carries run_id so every run writes a new entry - cache keys are
+      # immutable, so a fixed key would never pick up sources fetched after the
+      # first save. restore-keys above prefix-matches the most recent.
+      - name: Save source cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: sources
+          key: sources-rk3566-${{ hashFiles('packages/**/package.mk') }}-${{ github.run_id }}
+
       - name: Show what was produced
         if: always()
         run: |
-          df -h /
+          echo "=== disk ==="; df -h /
+          echo "=== sources cached ==="; du -sh sources 2>/dev/null || echo "no sources/"
+          echo "=== build tree ==="; du -sh build.* 2>/dev/null || echo "no build tree"
+          echo "=== release ==="
           ls -lh release/ 2>/dev/null || echo "no release/ directory -- build did not reach image assembly"
 
       - name: Upload image as artifact
