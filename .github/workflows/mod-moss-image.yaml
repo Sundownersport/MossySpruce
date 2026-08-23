@@ -51,7 +51,7 @@ jobs:
       - name: Modify the image
         run: |
           SRC=$(ls ./*install*.img.gz | head -1)
-          sudo ./tools/mod-moss-image.sh "$SRC" "MOSSYSPRUCE-RGB30-modded.img.gz"
+          sudo bash ./tools/mod-moss-image.sh "$SRC" "MOSSYSPRUCE-RGB30-modded.img.gz"
           ls -lh MOSSYSPRUCE-RGB30-modded.img.gz
 
       - name: Verify the change landed
