@@ -35,7 +35,7 @@ OUT="${2:-MOSSYSPRUCE-RGB30.img.gz}"
 [ -n "$SRC" ] || die "usage: $0 <MOSS-RGB30-install-*.img.gz> [output.img.gz]"
 [ -f "$SRC" ] || die "no such file: $SRC"
 
-for t in unsquashfs mksquashfs mcopy sfdisk gzip md5sum; do
+for t in unsquashfs mksquashfs mcopy sfdisk gzip md5sum python3; do
     command -v "$t" >/dev/null || die "missing required tool: $t"
 done
 mksquashfs -help 2>&1 | grep -q lzo || die "mksquashfs has no lzo support - the Moss SYSTEM is lzo compressed"
@@ -48,22 +48,7 @@ gzip -dc "$SRC" > "$WORK/disk.img"
 
 # The boot partition is found, not assumed: it is the EFI System partition.
 note "locating the boot partition"
-eval "$(sfdisk -J "$WORK/disk.img" | python3 -c '
-import json, sys
-d = json.load(sys.stdin)["partitiontable"]
-sec = d.get("sectorsize", 512)
-for part in d["partitions"]:
-    name = part.get("name", "")
-    ptype = part.get("type", "").upper()
-    if "EFI System" in name or ptype.startswith("C12A7328"):
-        print("OFF=%d" % (part["start"] * sec))
-        print("SZ=%d" % (part["size"] * sec))
-        print("STARTSEC=%d" % part["start"])
-        print("SECSZ=%d" % sec)
-        break
-else:
-    sys.exit("could not find the EFI System partition")
-')"
+eval "$(python3 "$(dirname "$0")/locate-boot-part.py" "$WORK/disk.img")"
 [ -n "${OFF:-}" ] || die "boot partition not located"
 note "boot partition at byte $OFF, size $SZ"
 

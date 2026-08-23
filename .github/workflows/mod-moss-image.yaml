@@ -60,8 +60,12 @@ jobs:
           # rather than trusting that the script ran without error.
           sudo apt-get install -y --no-install-recommends p7zip-full >/dev/null
           gzip -dc MOSSYSPRUCE-RGB30-modded.img.gz > check.img
-          START=$(sfdisk -J check.img | python3 -c 'import json,sys; d=json.load(sys.stdin)["partitiontable"]; print([p["start"] for p in d["partitions"] if "EFI System" in p.get("name","")][0])')
-          dd if=check.img of=check.fat bs=512 skip="$START" count=4194304 status=none
+          # Same locator the script uses. These were separate copies and the
+          # one here matched on the GPT name alone, which the runner's sfdisk
+          # does not report - so it found nothing and the verify failed on a
+          # perfectly good image.
+          eval "$(python3 ./tools/locate-boot-part.py check.img)"
+          dd if=check.img of=check.fat bs="$SECSZ" skip="$STARTSEC" count=$((SZ / SECSZ)) status=none
           mcopy -i check.fat ::SYSTEM ./SYSTEM.check
           mcopy -i check.fat ::SYSTEM.md5 ./SYSTEM.md5.check
           echo "=== md5 recorded vs actual ==="
