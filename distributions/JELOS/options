@@ -14,7 +14,7 @@
   GIT_REPO="distribution"
 
 # Name of the Distro to build (full name, without special characters)
-  DISTRONAME="MOSS"
+  DISTRONAME="MOSSYSPRUCE"
 
 # short project description
   DESCRIPTION="MinUI OS Subsystem, a barebones firmware for the RGB30 based on JELOS."
@@ -154,7 +154,7 @@
 
 # Distribution Specific source location
   DISTRO_MIRROR=""
-  DISTRO_SRC="https://github.com/shauninman/Moss"
+  DISTRO_SRC="https://github.com/Sundownersport/MossySpruce"
 
 # Default size of system partition, in MB, eg. 512
   SYSTEM_SIZE=2048
@@ -169,7 +169,7 @@
   GET_HANDLER_SUPPORT="archive git file"
 
 # Partition labels for USB/SD installation media
-  DISTRO_BOOTLABEL="MOSS"
+  DISTRO_BOOTLABEL="MOSSYSPRUCE"
   DISTRO_DISKLABEL="STORAGE"
 
 # Settings package name - blank if not required

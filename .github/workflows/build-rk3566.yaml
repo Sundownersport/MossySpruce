@@ -1,0 +1,104 @@
+# Build the MossySpruce RK3566 image (Powkiddy RGB30) on a GitHub-hosted runner.
+#
+# Upstream JELOS builds all seven platforms on self-hosted infrastructure with a
+# persistent /buildroot cache and a 24h timeout. Neither is available here, so
+# this builds RK3566 only and reclaims as much runner disk as it can first.
+#
+# The 6h job limit is the real constraint. If a cold build does not finish,
+# the options are a paid larger runner or splitting the build across jobs --
+# check the timing on the first run before assuming either.
+
+name: build-rk3566
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag (blank = date-sha, no release created)"
+        required: false
+        default: ""
+      arch:
+        description: "Architecture to build"
+        required: false
+        default: "aarch64"
+        type: choice
+        options: [aarch64, both]
+
+concurrency:
+  group: build-rk3566
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 350
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Reclaim runner disk
+        run: |
+          echo "=== before ==="; df -h /
+          # The hosted image ships ~30GB of toolchains we will never use.
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+                      /usr/local/share/boost /usr/local/lib/node_modules \
+                      /opt/hostedtoolcache/CodeQL /usr/share/swift || true
+          sudo docker image prune -af || true
+          sudo apt-get clean
+          echo "=== after ==="; df -h /
+
+      - name: Build metadata
+        id: meta
+        run: |
+          echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
+          echo "sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          TAG="${{ inputs.release_tag }}"
+          [ -z "$TAG" ] && TAG="$(date +'%Y%m%d')-$(git rev-parse --short HEAD)"
+          echo "version=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Build RK3566
+        run: |
+          set -e
+          if [ "${{ inputs.arch }}" = "both" ]; then
+            CUSTOM_VERSION="${{ steps.meta.outputs.version }}" make docker-RK3566
+          else
+            # aarch64 only -- roughly half the work of the Makefile's RK3566
+            # target, which also builds a 32-bit sysroot.
+            CUSTOM_VERSION="${{ steps.meta.outputs.version }}" \
+              DOCKER_WORK_DIR="/work" \
+              make docker-RK3566-aarch64
+          fi
+
+      - name: Show what was produced
+        if: always()
+        run: |
+          df -h /
+          ls -lh release/ 2>/dev/null || echo "no release/ directory -- build did not reach image assembly"
+
+      - name: Upload image as artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: MossySpruce-RK3566-${{ steps.meta.outputs.version }}
+          path: release/*
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Publish release
+        if: success() && inputs.release_tag != ''
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ steps.meta.outputs.version }}
+          artifacts: "release/*"
+          draft: true
+          prerelease: false
+          token: ${{ secrets.GITHUB_TOKEN }}
+          body: |
+            MossySpruce ${{ steps.meta.outputs.version }} for the Powkiddy RGB30 (RK3566).
+
+            TF1 subsystem for spruceOS. Write this image to TF1, put spruceOS on TF2.
+
+            Fork of [Moss](https://github.com/shauninman/Moss), itself a fork of
+            [JELOS](https://github.com/JustEnoughLinuxOS/distribution). JELOS software is
+            Apache 2.0, copyright 2021-present Fewtarius.
