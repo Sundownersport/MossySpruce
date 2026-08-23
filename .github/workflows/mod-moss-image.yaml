@@ -1,0 +1,83 @@
+# Build a spruce-bootable RGB30 card image by modifying a stock Moss release,
+# without building the distribution.
+#
+# This is the fallback path. It exists so hardware work is not blocked on the
+# buildroot, and it runs here rather than on a laptop because repacking a
+# 185MB lzo squashfs is real work.
+
+name: mod-moss-image
+
+on:
+  workflow_dispatch:
+    inputs:
+      moss_tag:
+        description: "Moss release tag to start from"
+        required: false
+        default: "v20231014"
+      moss_asset:
+        description: "Asset name pattern of the install image"
+        required: false
+        default: "*install*.img.gz"
+
+concurrency:
+  group: mod-moss-image
+
+jobs:
+  mod:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y squashfs-tools mtools util-linux
+          echo "=== confirm lzo support, which the Moss SYSTEM needs ==="
+          mksquashfs -help 2>&1 | grep -i lzo || { echo "no lzo support in mksquashfs"; exit 1; }
+
+      - name: Fetch the stock Moss image
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download "${{ inputs.moss_tag }}" \
+            --repo shauninman/Moss \
+            --pattern "${{ inputs.moss_asset }}" \
+            --clobber
+          ls -lh ./*.img.gz
+
+      - name: Modify the image
+        run: |
+          SRC=$(ls ./*install*.img.gz | head -1)
+          sudo ./tools/mod-moss-image.sh "$SRC" "MOSSYSPRUCE-RGB30-modded.img.gz"
+          ls -lh MOSSYSPRUCE-RGB30-modded.img.gz
+
+      - name: Verify the change landed
+        run: |
+          # Re-open the produced image and confirm the symlink is really there,
+          # rather than trusting that the script ran without error.
+          sudo apt-get install -y --no-install-recommends p7zip-full >/dev/null
+          gzip -dc MOSSYSPRUCE-RGB30-modded.img.gz > check.img
+          START=$(sfdisk -J check.img | python3 -c 'import json,sys; d=json.load(sys.stdin)["partitiontable"]; print([p["start"] for p in d["partitions"] if "EFI System" in p.get("name","")][0])')
+          dd if=check.img of=check.fat bs=512 skip="$START" count=4194304 status=none
+          mcopy -i check.fat ::SYSTEM ./SYSTEM.check
+          mcopy -i check.fat ::SYSTEM.md5 ./SYSTEM.md5.check
+          echo "=== md5 recorded vs actual ==="
+          cat SYSTEM.md5.check
+          md5sum SYSTEM.check
+          [ "$(awk '{print $1}' SYSTEM.md5.check)" = "$(md5sum SYSTEM.check | awk '{print $1}')" ] \
+            || { echo "SYSTEM.md5 does not match the SYSTEM we wrote"; exit 1; }
+          echo "=== /mnt/SDCARD present in the new rootfs? ==="
+          unsquashfs -l SYSTEM.check | grep -E "squashfs-root/mnt(/|$)" \
+            || { echo "the symlink is missing from the repacked rootfs"; exit 1; }
+          rm -f check.img check.fat SYSTEM.check
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: MOSSYSPRUCE-RGB30-modded
+          path: MOSSYSPRUCE-RGB30-modded.img.gz
+          retention-days: 14
+          if-no-files-found: error
