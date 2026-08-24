@@ -3,7 +3,14 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="fakeroot"
-PKG_VERSION="305c8a1b5396554a67794f3fe6e4990a24a810f9" # 1.32.1
+# Upstream rebased 'main', so the old dev commit 305c8a1b is gone from every
+# branch. Pin the permanent release tag instead. The tag commit is NOT an
+# ancestor of main, so we must also tell get_git to clone the tag directly -
+# otherwise its "commit must be in `git log` of the cloned branch" check
+# (scripts/get_git) fails the same way, 22 minutes into the build.
+PKG_VERSION="6adff503fcf1f3f985d256f7d91f3ae3fa3e2add" # tag debian/1.32.1-1
+PKG_GIT_CLONE_BRANCH="debian/1.32.1-1"
+PKG_GIT_CLONE_SINGLE="yes"
 PKG_LICENSE="GPL3"
 PKG_SITE="https://salsa.debian.org/clint/fakeroot"
 PKG_URL="${PKG_SITE}.git"
