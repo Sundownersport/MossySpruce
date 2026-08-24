@@ -6,8 +6,14 @@
 PKG_NAME="keyutils"
 PKG_VERSION="1.6.1"
 PKG_LICENSE="GPL"
-PKG_SITE="http://people.redhat.com/~dhowells/keyutils/"
-PKG_URL="http://people.redhat.com/~dhowells/keyutils/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
+# Upstream lived on people.redhat.com, which Red Hat decommissioned - the fetch
+# just times out. Pull the identical upstream tarball from Debian's permanent
+# orig-tarball pool instead (bit-for-bit the same 1.6.1 release, unpacks to
+# keyutils-1.6.1/). PKG_SOURCE_NAME keeps the cached file canonically named
+# despite Debian's keyutils_1.6.1.orig.tar.bz2 basename.
+PKG_SITE="https://git.kernel.org/pub/scm/linux/kernel/git/dhowells/keyutils.git/"
+PKG_URL="http://deb.debian.org/debian/pool/main/k/keyutils/${PKG_NAME}_${PKG_VERSION}.orig.tar.bz2"
+PKG_SOURCE_NAME="${PKG_NAME}-${PKG_VERSION}.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="Keyutils is a set of utilities for managing the key retention facility in the kernel."
 PKG_BUILD_FLAGS="+pic"
