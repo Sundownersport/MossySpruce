@@ -1,4 +1,6 @@
 [Unit]
+After=jelos-automount.service
+Wants=jelos-automount.service
 Description=spruceOS launcher and frontend
 ConditionPathExists=/var/lock/start.games
 

@@ -1,6 +1,6 @@
 [Unit]
 Description=JELOS user autostart script
-Before=autostart.service
+Before=jelos-autostart.service
 After=systemd-tmpfiles-setup.service
 
 [Service]

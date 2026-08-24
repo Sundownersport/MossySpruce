@@ -76,6 +76,34 @@ note "adding /mnt/SDCARD -> /storage/roms"
 mkdir -p "$WORK/root/mnt"
 ln -s /storage/roms "$WORK/root/mnt/SDCARD"
 
+# Order the UI after the games card is mounted. The stock image starts the UI
+# (minui.service) with no ordering against jelos-automount, and automount's own
+# `Before=autostart.service` names a unit that does not exist - the real one is
+# jelos-autostart.service - so the ordering edge is silently dropped and the two
+# race. When TF2's FAT is dirty, automount's fsck is slow, the UI wins the race,
+# checks for the launcher before /storage/roms is mounted, and shows the
+# "missing frontend" screen then powers off. First boot after a fresh install
+# works; every boot after an unclean poweroff does not. Two independent fixes so
+# it cannot regress if one unit changes upstream.
+note "ordering the UI after jelos-automount"
+UNIT_DIR="$WORK/root/usr/lib/systemd/system"
+[ -f "$UNIT_DIR/minui.service" ] || die "minui.service missing - stock image layout changed"
+[ -f "$UNIT_DIR/jelos-automount.service" ] || die "jelos-automount.service missing - stock image layout changed"
+
+# 1) make the UI wait for the mount
+if ! grep -q '^After=.*jelos-automount' "$UNIT_DIR/minui.service"; then
+    sed -i '/^\[Unit\]/a After=jelos-automount.service\nWants=jelos-automount.service' "$UNIT_DIR/minui.service"
+fi
+grep -q '^After=.*jelos-automount' "$UNIT_DIR/minui.service" || die "failed to order minui.service after jelos-automount"
+
+# 2) fix automount's dead ordering typo. Warn rather than die: if upstream ever
+#    corrects it, the fix above still stands on its own.
+if grep -q '^Before=autostart\.service$' "$UNIT_DIR/jelos-automount.service"; then
+    sed -i 's/^Before=autostart\.service$/Before=jelos-autostart.service/' "$UNIT_DIR/jelos-automount.service"
+else
+    note "  (jelos-automount no longer has the Before=autostart.service typo - skipping)"
+fi
+
 note "repacking (lzo, 512K blocks, matching the stock image)"
 rm -f "$WORK/SYSTEM.new"
 mksquashfs "$WORK/root" "$WORK/SYSTEM.new" \
