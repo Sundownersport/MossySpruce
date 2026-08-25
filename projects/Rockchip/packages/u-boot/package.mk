@@ -71,7 +71,11 @@ make_target() {
     if [[ "${PKG_SOC}" =~ "rk35" ]]
     then
       DEBUG=${PKG_DEBUG} CROSS_COMPILE="${TARGET_KERNEL_PREFIX}" LDFLAGS="" ARCH=arm64 make mrproper
-      DEBUG=${PKG_DEBUG} CROSS_COMPILE="${TARGET_KERNEL_PREFIX}" LDFLAGS="" ARCH=arm64 make ${UBOOT_CONFIG} BL31=${PKG_BL31} ${PKG_LOADER} u-boot.dtb u-boot.itb
+      # u-boot.itb is assembled by mkimage, which shells out to dtc. Point it at
+      # u-boot's own in-tree dtc (scripts/dtc/dtc, built by the line above) the
+      # same way the second make and the non-rk35 path already do - otherwise it
+      # calls a system dtc that is not present in the build container.
+      DEBUG=${PKG_DEBUG} CROSS_COMPILE="${TARGET_KERNEL_PREFIX}" LDFLAGS="" ARCH=arm64 make ${UBOOT_CONFIG} BL31=${PKG_BL31} ${PKG_LOADER} CONFIG_MKIMAGE_DTC_PATH="scripts/dtc/dtc" u-boot.dtb u-boot.itb
       DEBUG=${PKG_DEBUG} CROSS_COMPILE="${TARGET_KERNEL_PREFIX}" LDFLAGS="" ARCH=arm64 _python_sysroot="${TOOLCHAIN}" _python_prefix=/ _python_exec_prefix=/ make HOSTCC="${HOST_CC}" HOSTLDFLAGS="-L${TOOLCHAIN}/lib" HOSTSTRIP="true" CONFIG_MKIMAGE_DTC_PATH="scripts/dtc/dtc"
     else
       echo "Building for MBR (${UBOOT_DTB})..."
